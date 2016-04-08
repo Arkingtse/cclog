@@ -16,13 +16,13 @@ type fileLog struct {
 	filePerm os.FileMode
 
 	level int
-	nameFormater string  // 文件名格式
-	msgFormater string  // 日志格式
+	nameFormater string  // file name format
+	msgFormater string  // log msg format
 
-	rotate bool    // 是否切割日志
-	rotateType string  // 切割方式
+	rotate bool    // need rotate
+	rotateType string  // rotate type
 
-	maxRotate int64 // 保存最大天数
+	maxRotate int64 // max files to be saved
 	maxLines int
 	maxSize int
 
@@ -46,7 +46,7 @@ func (w *fileLog)Write(lg log) error {
 	}
 
 
-	w.Lock() // 锁定文件写入
+	w.Lock() //
 	_,err := w.writer.Write([]byte(fmt_msg))
 	if err == nil {
 		//w.curLine ++
@@ -61,13 +61,13 @@ func (w *fileLog)Set() error {
 
 	w.maxRotate = cfg.FileMaxRotate
 	if w.maxRotate == 0{
-		w.maxRotate = 20   // 默认保存20个日志文件
+		w.maxRotate = 20   // default save 20 file
 	}
 
 	w.filePerm = 0660
 
 	w.nameFormater = cfg.FileNameFormat
-	if strings.TrimSpace(w.nameFormater) == ""{  // 默认文件名
+	if strings.TrimSpace(w.nameFormater) == ""{  // set default file name
 		if w.rotateType == "daily"{
 			w.nameFormater = "log/20060102.log"
 		}else {
@@ -79,34 +79,39 @@ func (w *fileLog)Set() error {
 	case "line","size":
 		w.rotateType = cfg.FileRotateType
 		w.fileName = cfg.FileNameFormat
-	default:  // 默认按天拆分log
+	default:  // default rotate daily
 		w.rotateType = "daily"
 		w.fileName = time.Now().Format(cfg.FileNameFormat)
 	}
 
 
-	folder,_ := filepath.Split(w.fileName)
-
-	//fmt.Println("日志路径: ", folder)
-	// 创建目标路径
-	if 0 != len(folder) {
-		err := os.MkdirAll(folder, 0767)
-		if err != nil {
-			return err
-		}
+	if err := w.noFileThenCreate(w.fileName);err!=nil{
+		return err
 	}
 
 	w.msgFormater = cfg.FileMsgFormat
 	if strings.TrimSpace(w.msgFormater) == ""{
-		w.msgFormater = "%Time [%Level] %Msg --[%Line]%File"  // 默认消息格式
+		w.msgFormater = "%Time [%Level] %Msg --[%Line]%File"  // default msg format
 	}
 
 
 	w.level = stringLevel[cfg.FileLevel]
 	w.rotate = cfg.FileRotate
 
-	w.startLogger()  // 打开文件
+	w.startLogger()  // start the file writer
 
+	return nil
+}
+
+func (w *fileLog)noFileThenCreate(name string) error {
+	folder,_ := filepath.Split(name)
+
+	if 0 != len(folder) {
+		err := os.MkdirAll(folder, 0660)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -136,7 +141,7 @@ func (w *fileLog)initFd() error {
 func (w *fileLog)startLogger() error {
 	file,err := w.createFile()
 	if err != nil {
-		fmt.Println("创建日志文件失败:", err)
+		fmt.Println("error when create file:", err)
 		return err
 	}
 	if w.writer != nil{
@@ -148,6 +153,12 @@ func (w *fileLog)startLogger() error {
 }
 
 func (w *fileLog)needRotate() bool {
+
+	// if file not exist, then need rotate
+	if _,err := os.Stat(w.fileName);err!=nil && !os.IsExist(err){
+		return true
+	}
+
 	if w.rotateType == "daily"{
 		return time.Now().Format(w.nameFormater) != w.fileName
 	}else {
@@ -157,8 +168,7 @@ func (w *fileLog)needRotate() bool {
 }
 
 func (w *fileLog)doRotate() error {
-	_,err := os.Lstat(w.fileName)
-	if err != nil {
+	if err := w.noFileThenCreate(w.fileName);err!=nil{
 		return err
 	}
 
@@ -167,7 +177,7 @@ func (w *fileLog)doRotate() error {
 	w.fileName = time.Now().Format(w.nameFormater)
 
 	if err := w.startLogger();err !=nil{
-		return fmt.Errorf("切换文件出错: %\n", err)
+		return fmt.Errorf("error when rotate file: %\n", err)
 	}
 
 	return nil

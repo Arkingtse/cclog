@@ -10,6 +10,7 @@ import (
 	"strings"
 	"fmt"
 	"os"
+	"errors"
 )
 
 
@@ -193,6 +194,28 @@ func write(level int,msg... interface{})  {
 	lock.Lock()  // 当log被锁定时, 阻塞日志写入
 	logChan <- lg
 	lock.Unlock()
+}
+
+func SetFileLevel(level string) error {
+	switch level {
+	case "Trace", "Debug", "Info", "Warn", "Error", "Critical":
+		cfg.FileLevel = level
+		registerLoggers()
+		return nil
+	default:
+		return errors.New("unsupport level")
+	}
+}
+
+func SetConsoleLevel(level string) error {
+	switch level {
+	case "Trace", "Debug", "Info", "Warn", "Error", "Critical":
+		cfg.ConsoleLevel = level
+		registerLoggers()
+		return nil
+	default:
+		return errors.New("unsupport level")
+	}
 }
 
 func Trace(msg ...interface{})  {
