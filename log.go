@@ -223,8 +223,7 @@ func Trace(msg ...interface{})  {
 }
 
 func Tracef(format string, a ...interface{})  {
-	submsg := []interface{} {fmt.Sprintf(format, a...)}
-	msg := []interface{} {submsg}
+	msg := []interface{} {fmt.Sprintf(format, a...)}
 	write(levelTrace,msg)
 }
 
@@ -233,8 +232,7 @@ func Debug(msg ...interface{})  {
 }
 
 func Debugf(format string, a ...interface{})  {
-	submsg := []interface{} {fmt.Sprintf(format, a...)}
-	msg := []interface{} {submsg}
+	msg := []interface{} {fmt.Sprintf(format, a...)}
 	write(levelDebug,msg)
 }
 
@@ -243,8 +241,7 @@ func Info(msg ...interface{})  {
 }
 
 func Infof(format string, a ...interface{})  {
-	submsg := []interface{} {fmt.Sprintf(format, a...)}
-	msg := []interface{} {submsg}
+	msg := []interface{} {fmt.Sprintf(format, a...)}
 	write(levelInfo,msg)
 }
 
@@ -253,8 +250,7 @@ func Warn(msg ...interface{})  {
 }
 
 func Warnf(format string, a ...interface{})  {
-	submsg := []interface{} {fmt.Sprintf(format, a...)}
-	msg := []interface{} {submsg}
+	msg := []interface{} {fmt.Sprintf(format, a...)}
 	write(levelWarn,msg)
 }
 
@@ -263,8 +259,7 @@ func Error(msg ...interface{})  {
 }
 
 func Errorf(format string, a ...interface{})  {
-	submsg := []interface{} {fmt.Sprintf(format, a...)}
-	msg := []interface{} {submsg}
+	msg := []interface{} {fmt.Sprintf(format, a...)}
 	write(levelError,msg)
 }
 
@@ -273,8 +268,7 @@ func Critical(msg ...interface{})  {
 }
 
 func Criticalf(format string, a ...interface{})  {
-	submsg := []interface{} {fmt.Sprintf(format, a...)}
-	msg := []interface{} {submsg}
+	msg := []interface{} {fmt.Sprintf(format, a...)}
 	write(levelCritical,msg)
 }
 
