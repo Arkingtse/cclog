@@ -253,13 +253,6 @@ func SetFileLevel(level string) error {
 	return errors.New("unsupport level:"+level)
 }
 
-func SetFileNameFormat(format string) {
-	if len(strings.TrimSpace(format)) == 0 {
-		return
-	}
-	cfg.FileNameFormat = format
-}
-
 func SetConsoleLevel(level string) error {
 	if stringLevel[level] != 0{
 		cfg.ConsoleLevel = level
