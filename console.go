@@ -18,6 +18,7 @@ func newBrush(color string) brush {
 }
 
 var colors = []brush{
+	newBrush("1;34"), // 0                  blue
 	newBrush("1;34"), // Trace              blue
 	newBrush("1;34"), // Debug              blue
 	newBrush("1;34"), // Info               blue

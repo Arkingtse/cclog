@@ -87,19 +87,19 @@ var rotateType  = make(map[string]int)
 
 
 func init() {
-	levelString[1] = "Trace"
-	levelString[2] = "Debug"
-	levelString[3] = "Info"
-	levelString[4] = "Warn"
-	levelString[5] = "Error"
-	levelString[6] = "Critical"
+	levelString[levelTrace] = "Trace"
+	levelString[levelDebug] = "Debug"
+	levelString[levelInfo] = "Info"
+	levelString[levelWarn] = "Warn"
+	levelString[levelError] = "Error"
+	levelString[levelCritical] = "Critical"
 
-	stringLevel["Trace"] = 1
-	stringLevel["Debug"] = 2
-	stringLevel["Info"] = 3
-	stringLevel["Warn"] = 4
-	stringLevel["Error"] = 5
-	stringLevel["Critical"] = 6
+	stringLevel["Trace"] = levelTrace
+	stringLevel["Debug"] = levelDebug
+	stringLevel["Info"] = levelInfo
+	stringLevel["Warn"] = levelWarn
+	stringLevel["Error"] = levelError
+	stringLevel["Critical"] = levelCritical
 
 	rotateType["daily"] = 1
 	rotateType["size"] = 2
