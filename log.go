@@ -18,12 +18,12 @@ const DEFAULT_FILE_FORMAT = "log/20060102.log"
 
 // Trace, Debug, Info, Warn, Error, Critical
 const (
-	levelTrace = iota    // Trace message
-	levelDebug           // Debug message
-	levelInfo            // Info message
-	levelWarn            // Warn message
-	levelError           // Error message
-	levelCritical        // Critical message(not)
+	levelTrace = iota + 1   // Trace message
+	levelDebug              // Debug message
+	levelInfo               // Info message
+	levelWarn               // Warn message
+	levelError              // Error message
+	levelCritical           // Critical message(not)
 )
 
 
