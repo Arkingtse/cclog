@@ -13,6 +13,8 @@ import (
 	"errors"
 )
 
+const DEFAULT_MSG_FORMAT = "%Time [%Level] %Msg --[%Line]%File"
+const DEFAULT_FILE_FORMAT = "log/20060102.log"
 
 // Trace, Debug, Info, Warn, Error, Critical
 const (
@@ -28,28 +30,28 @@ const (
 // log config
 type config struct {
 
-	// 输出到文件,默认输出到文件
+	// file output
 	FileLevel string  `json:"fileLevel"`
 	FileNameFormat string  `json:"fileNameFormater"`
 	FileMsgFormat string  `json:"fileMsgFormater"`
-	FileRotate bool  `json:"fileRotate"`   // 是否切换(切割)日志文件
-	FileRotateType string  `json:"fileRotateType"`   // 分割方式, 文件大小/日期/ size/date
-	FileMaxRotate int64  `json:"fileMaxRotate"`   // 日志保存数量
-	FileMaxLine int  `json:"fileMaxLine"`  // 最大行数
-	FileMaxSize int  `json:"fileMaxSize"`  // 最大文件大小
+	FileRotate bool  `json:"fileRotate"`
+	FileRotateType string  `json:"fileRotateType"`   // rotate by date/size/line
+	FileMaxRotate int64  `json:"fileMaxRotate"`   // max file to be saved
+	FileMaxLine int  `json:"fileMaxLine"`  // max line to rotate file
+	FileMaxSize int  `json:"fileMaxSize"`  // max size to rotate file
 
 
-	// 输出到控制台
+	// console output
 	Console bool  `json:"console"`
 	ConsoleLevel string  `json:"consoleLevel"`
 	ConsoleMsgFormat string  `json:"consoleMsgFormat"`
 
-	// 发送邮件, 填了邮箱就发
+	// email output
 	Email string  `json:"email"`
 	EmailLevel string  `json:"emailLevel"`
 	EmailMsgFormat string  `json:"emailMsgFormat"`
 
-	// 输送远程, 填了地址就发
+	// remote log server
 	Remote string  `json:"remote"`
 	RemoteLevel string  `json:"remoteLevel"`
 	RemoteMsgFormat string  `json:"remoteMsgFormat"`
@@ -58,7 +60,7 @@ type config struct {
 
 
 
-// log信息结构
+// log full info
 type log struct {
 	Time time.Time
 	Level int
@@ -70,61 +72,77 @@ type log struct {
 var logPool *sync.Pool
 
 
-// 模块几个重要对象
+
 var lock sync.Mutex
 var cfg config
 var logChan = make(chan *log, 10000)
 var signalChan = make(chan string)
-//var wg sync.WaitGroup  //等待所有输入写完?
 var outputs = make(map[string]outPut)
 
-var stop = false // log状态
+var stop = false
 
 var levelString = make(map[int]string)
 var stringLevel = make(map[string]int)
+var rotateType  = make(map[string]int)
 
 
-func init() {  //默认输出
-	levelString[0] = "Trace"
-	levelString[1] = "Debug"
-	levelString[2] = "Info"
-	levelString[3] = "Warn"
-	levelString[4] = "Error"
-	levelString[5] = "Critical"
+func init() {
+	levelString[1] = "Trace"
+	levelString[2] = "Debug"
+	levelString[3] = "Info"
+	levelString[4] = "Warn"
+	levelString[5] = "Error"
+	levelString[6] = "Critical"
 
-	stringLevel["Trace"] = 0
-	stringLevel["Debug"] = 1
-	stringLevel["Info"] = 2
-	stringLevel["Warn"] = 3
-	stringLevel["Error"] = 4
-	stringLevel["Critical"] = 5
+	stringLevel["Trace"] = 1
+	stringLevel["Debug"] = 2
+	stringLevel["Info"] = 3
+	stringLevel["Warn"] = 4
+	stringLevel["Error"] = 5
+	stringLevel["Critical"] = 6
 
+	rotateType["daily"] = 1
+	rotateType["size"] = 2
+	rotateType["line"] = 3
+
+
+	// console log default
 	cfg.Console = true
 	cfg.ConsoleLevel = "Trace"
+	cfg.ConsoleMsgFormat = DEFAULT_MSG_FORMAT
 
-	// 默认文件名与消息格式
-	cfg.FileMsgFormat = "%Time [%Level] %Msg --[%Line]%File"
-	cfg.FileNameFormat = "log/20060102.log"
+	// file log default
+	cfg.FileNameFormat = DEFAULT_FILE_FORMAT
 	cfg.FileLevel = "Trace"
-
+	cfg.FileMsgFormat = DEFAULT_MSG_FORMAT
 	cfg.FileRotateType = "daily"
+	cfg.FileMaxRotate = 20
+	cfg.FileRotate = true
 
-	// 初始化log对象池
+	// email log default
+	cfg.EmailLevel = "Trace"
+	cfg.EmailMsgFormat = DEFAULT_MSG_FORMAT
+
+	// remote log default
+	cfg.RemoteLevel = "Trace"
+	cfg.RemoteMsgFormat = DEFAULT_MSG_FORMAT
+
+
+	// init the log pool
 	logPool = &sync.Pool{
 		New:func() interface{}{
 			return &log{}
 		},
 	}
 
-	// 默认开文件log
-	// 按配置注册其他log
+	// register all output
 	registerLoggers()
-	// 开启协程后台写log到各输出
+	// start log writer server
 	go startLogger()
 }
 
 func registerLoggers()  {
-	lock.Lock()  // 更换配置时锁定日志写入,更新完成后再允许写入日志
+	lock.Lock()  // block all writer when update log writer
 
 	for k,_ := range outputs{
 		outputs[k].Close()
@@ -150,30 +168,61 @@ func ConfigFromByte(data []byte) error {
 		return err
 	}
 
-	switch tmp.FileLevel {
-	case "Trace","Info","Debug","Warn","Error","Critical":
-	default:
-		fmt.Fprint(os.Stdout,"unsupport level for file: "+tmp.FileLevel)
+	// file log default
+	if stringLevel[tmp.FileLevel] == 0 {
+		fmt.Fprintln(os.Stdout,"unsupport level for file: "+tmp.FileLevel)
 		tmp.FileLevel = "Warn"
 	}
+	if len(strings.TrimSpace(tmp.FileNameFormat)) == 0 {
+		tmp.FileNameFormat = DEFAULT_FILE_FORMAT
+	}
+	if len(strings.TrimSpace(tmp.FileMsgFormat)) == 0 {
+		tmp.FileMsgFormat = DEFAULT_MSG_FORMAT
+	}
+	if rotateType[tmp.FileRotateType] == 0 {
+		tmp.FileRotateType = "daily"
+	}
+	if tmp.FileMaxRotate == 0{
+		tmp.FileMaxRotate = 20
+	}
 
-	switch tmp.ConsoleLevel {
-	case "Trace","Info","Debug","Warn","Error","Critical":
-	default:
-		fmt.Fprint(os.Stdout,"unsupport level for console: "+tmp.FileLevel)
+	// console log default
+	if stringLevel[tmp.ConsoleLevel] == 0{
+		fmt.Fprintln(os.Stdout,"unsupport level for console: "+tmp.ConsoleLevel)
 		tmp.ConsoleLevel = "Warn"
+	}
+	if len(strings.TrimSpace(tmp.ConsoleMsgFormat)) == 0 {
+		tmp.ConsoleMsgFormat = DEFAULT_MSG_FORMAT
+	}
+
+	// email log default
+	if stringLevel[tmp.EmailLevel] == 0{
+		//fmt.Fprintln(os.Stdout,"unsupport level for email: "+tmp.EmailLevel)
+		tmp.EmailLevel = "Warn"
+	}
+	if len(strings.TrimSpace(tmp.EmailMsgFormat)) == 0 {
+		tmp.EmailMsgFormat = DEFAULT_MSG_FORMAT
+	}
+
+	// remote log default
+	if stringLevel[tmp.RemoteLevel] == 0{
+		//fmt.Fprintln(os.Stdout,"unsupport level for remote: "+tmp.RemoteLevel)
+		tmp.RemoteLevel = "Warn"
+	}
+	if len(strings.TrimSpace(tmp.RemoteMsgFormat)) == 0 {
+		tmp.RemoteMsgFormat = DEFAULT_MSG_FORMAT
 	}
 
 	cfg = tmp
 
-	// 配置加载成功后
+	// when config success, restart all output writer
 	registerLoggers()
 
 	return nil
 }
 
 
-// 设置单条log内容
+// generate the log struct and push to logChan, then wait to be write
 func write(level int,msg... interface{})  {
 
 	_,file,line,ok := runtime.Caller(2)
@@ -183,7 +232,7 @@ func write(level int,msg... interface{})  {
 	}
 	_,filename := path.Split(file)
 
-	// 获取一个现有的log对象,设置好后放到待写logChan中
+
 	lg := logPool.Get().(*log)
 	lg.Time = time.Now()
 	lg.Msg = msg
@@ -191,31 +240,27 @@ func write(level int,msg... interface{})  {
 	lg.FileName = filename
 	lg.Line = line
 
-	lock.Lock()  // 当log被锁定时, 阻塞日志写入
+	lock.Lock()
 	logChan <- lg
 	lock.Unlock()
 }
 
 func SetFileLevel(level string) error {
-	switch level {
-	case "Trace", "Debug", "Info", "Warn", "Error", "Critical":
+	if stringLevel[level] != 0{
 		cfg.FileLevel = level
 		registerLoggers()
 		return nil
-	default:
-		return errors.New("unsupport level")
 	}
+	return errors.New("unsupport level:"+level)
 }
 
 func SetConsoleLevel(level string) error {
-	switch level {
-	case "Trace", "Debug", "Info", "Warn", "Error", "Critical":
+	if stringLevel[level] != 0{
 		cfg.ConsoleLevel = level
 		registerLoggers()
 		return nil
-	default:
-		return errors.New("unsupport level")
 	}
+	return errors.New("unsupport level:"+level)
 }
 
 func Trace(msg ...interface{})  {
@@ -310,22 +355,24 @@ func flush() {
 }
 
 
-// 输出方式接口定义
+// interface of log ouput
 type outPut interface {
-	Set() error       // 设置日志格式
-	Write(lg log) error    // 写入日志
-	Close()          // 关闭日志
-	Flush()          // 刷新日志
+	Set() error       // set necessary info for output
+	Write(lg log) error    // written to a specific output
+	Close()          // close the writer
+	Flush()
 }
 
+// delete log out put by name
 func delLog(name string)  {
 	out,ok := outputs[name].(outPut)
 	if ok{
 		out.Close()
-		fmt.Println("log关闭成功:",name)
+		fmt.Println("output deleted:",name)
 	}
 }
 
+// generate the full log message from log struct
 func genLogMsg(formater string, lg log) string {
 	fmt_msg := formater
 	fmt_msg = strings.Replace(fmt_msg, "%Time",lg.Time.Format("20060102-15:04:05"),-1)
@@ -333,13 +380,11 @@ func genLogMsg(formater string, lg log) string {
 	fmt_msg = strings.Replace(fmt_msg, "%Line",fmt.Sprint(lg.Line),-1)
 	fmt_msg = strings.Replace(fmt_msg, "%File",lg.FileName,-1)
 
-	// default type of mulpara if [][]interface{}
 	msgs := lg.Msg[0].([]interface{})
 	msg_str := ""
 	for k,_ := range msgs {
 		msg_str = msg_str +fmt.Sprintf("%+v ",msgs[k])
 	}
-
 	return strings.Replace(fmt_msg, "%Msg",msg_str,-1) + "\n"
 }
 

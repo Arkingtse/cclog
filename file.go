@@ -4,7 +4,6 @@ import (
 	"sync"
 	"os"
 	"fmt"
-	"strings"
 	"time"
 	"path/filepath"
 )
@@ -15,30 +14,19 @@ type fileLog struct {
 	fileName string
 	filePerm os.FileMode
 
-	level int
-	nameFormater string  // file name format
-	msgFormater string  // log msg format
-
-	rotate bool    // need rotate
-	rotateType string  // rotate type
-
-	maxRotate int64 // max files to be saved
-	maxLines int
-	maxSize int
-
 	curLine int
 	curSize int
 }
 
 func (w *fileLog)Write(lg log) error {
-	if lg.Level < w.level{
+	if lg.Level < stringLevel[cfg.FileLevel]{
 		return nil
 	}
 
-	fmt_msg := genLogMsg(w.msgFormater,lg)
+	fmt_msg := genLogMsg(cfg.FileMsgFormat,lg)
 
 	if w.needRotate(){
-		w.Lock()
+		w.Lock() // block write when rotate
 		if err := w.doRotate();err !=nil{
 			fmt.Fprintf(os.Stderr,"logfile(%q): %v\n",w.fileName,err)
 		}
@@ -46,7 +34,7 @@ func (w *fileLog)Write(lg log) error {
 	}
 
 
-	w.Lock() //
+	w.Lock() // block rotate when write
 	_,err := w.writer.Write([]byte(fmt_msg))
 	if err == nil {
 		//w.curLine ++
@@ -59,28 +47,13 @@ func (w *fileLog)Write(lg log) error {
 
 func (w *fileLog)Set() error {
 
-	w.maxRotate = cfg.FileMaxRotate
-	if w.maxRotate == 0{
-		w.maxRotate = 20   // default save 20 file
-	}
-
 	w.filePerm = 0660
 
-	w.nameFormater = cfg.FileNameFormat
-	if strings.TrimSpace(w.nameFormater) == ""{  // set default file name
-		if w.rotateType == "daily"{
-			w.nameFormater = "log/20060102.log"
-		}else {
-			w.nameFormater = "log/1.log"
-		}
-	}
 
-	switch cfg.FileRotateType {
-	case "line","size":
-		w.rotateType = cfg.FileRotateType
-		w.fileName = cfg.FileNameFormat
-	default:  // default rotate daily
-		w.rotateType = "daily"
+	if cfg.FileRotateType == "line" || cfg.FileRotateType == "size" {
+		//w.fileName = time.Now().Format("200601021504")
+	}else {
+		// default rotate daily
 		w.fileName = time.Now().Format(cfg.FileNameFormat)
 	}
 
@@ -88,15 +61,6 @@ func (w *fileLog)Set() error {
 	if err := w.noFileThenCreate(w.fileName);err!=nil{
 		return err
 	}
-
-	w.msgFormater = cfg.FileMsgFormat
-	if strings.TrimSpace(w.msgFormater) == ""{
-		w.msgFormater = "%Time [%Level] %Msg --[%Line]%File"  // default msg format
-	}
-
-
-	w.level = stringLevel[cfg.FileLevel]
-	w.rotate = cfg.FileRotate
 
 	w.startLogger()  // start the file writer
 
@@ -159,8 +123,8 @@ func (w *fileLog)needRotate() bool {
 		return true
 	}
 
-	if w.rotateType == "daily"{
-		return time.Now().Format(w.nameFormater) != w.fileName
+	if cfg.FileRotateType == "daily"{
+		return time.Now().Format(cfg.FileNameFormat) != w.fileName
 	}else {
 		//return w.curLine >= w.maxLines || w.curSize >= w.maxSize
 	}
@@ -174,7 +138,7 @@ func (w *fileLog)doRotate() error {
 
 	// file exist
 	w.writer.Close()
-	w.fileName = time.Now().Format(w.nameFormater)
+	w.fileName = time.Now().Format(cfg.FileNameFormat)
 
 	if err := w.startLogger();err !=nil{
 		return fmt.Errorf("error when rotate file: %\n", err)

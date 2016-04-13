@@ -4,7 +4,6 @@ import (
 	"io"
 	"sync"
 	"runtime"
-	"strings"
 	"os"
 )
 
@@ -31,11 +30,7 @@ type consoleLog struct {
 	sync.Mutex
 	writer io.Writer
 
-	enable bool
-	level int
 	colorful bool
-
-	msgFormater string
 }
 
 func (o *consoleLog)Set() error {
@@ -44,24 +39,17 @@ func (o *consoleLog)Set() error {
 		o.colorful = false
 	}
 
-	o.level = stringLevel[cfg.ConsoleLevel]
-
-	o.msgFormater = cfg.FileMsgFormat
-	if strings.TrimSpace(o.msgFormater) == ""{
-		o.msgFormater = "%Time [%Level] %Msg --[%Line]%File"  // 默认消息格式
-	}
-
 	o.writer = os.Stdout
 
 	return nil
 }
 
 func (o *consoleLog)Write(lg log) error {
-	if lg.Level < o.level {
+	if lg.Level < stringLevel[cfg.ConsoleLevel] {
 		return nil
 	}
 
-	msg := genLogMsg(o.msgFormater, lg)
+	msg := genLogMsg(cfg.ConsoleMsgFormat, lg)
 
 	if o.colorful{
 		msg = colors[lg.Level](msg)
