@@ -266,6 +266,12 @@ func SetConsoleLevel(level string) error {
 
 func EnableFile() {
 	enableFile = true
+	lock.Lock()
+	if _,ok := outputs["file"];ok{
+		outputs["file"].Close()
+	}
+	outputs["file"] = newFileLog()
+	lock.Unlock()
 }
 
 
