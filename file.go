@@ -12,7 +12,6 @@ type fileLog struct {
 	sync.Mutex
 	writer *os.File
 	fileName string
-	filePerm os.FileMode
 
 	curLine int
 	curSize int
@@ -47,9 +46,6 @@ func (w *fileLog)Write(lg log) error {
 
 func (w *fileLog)Set() error {
 
-	w.filePerm = 0660
-
-
 	if cfg.FileRotateType == "line" || cfg.FileRotateType == "size" {
 		//w.fileName = time.Now().Format("200601021504")
 	}else {
@@ -71,7 +67,7 @@ func (w *fileLog)noFileThenCreate(name string) error {
 	folder,_ := filepath.Split(name)
 
 	if 0 != len(folder) {
-		err := os.MkdirAll(folder, 0660)
+		err := os.MkdirAll(folder, 0766)
 		if err != nil {
 			return err
 		}
@@ -88,7 +84,7 @@ func (w *fileLog)Flush()  {
 }
 
 func (w *fileLog)createFile() (*os.File,error) {
-	return os.OpenFile(w.fileName, os.O_WRONLY|os.O_APPEND|os.O_CREATE, w.filePerm)
+	return os.OpenFile(w.fileName, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
 }
 
 func (w *fileLog)initFd() error {

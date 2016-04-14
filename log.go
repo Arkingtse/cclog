@@ -80,6 +80,7 @@ var signalChan = make(chan string)
 var outputs = make(map[string]outPut)
 
 var stop = false
+var enableFile = false
 
 var levelString = make(map[int]string)
 var stringLevel = make(map[string]int)
@@ -148,7 +149,9 @@ func registerLoggers()  {
 		outputs[k].Close()
 	}
 
-	outputs["file"] = newFileLog()
+	if enableFile{
+		outputs["file"] = newFileLog()
+	}
 	outputs["console"] = newConsoleLog()
 
 	lock.Unlock()
@@ -260,6 +263,11 @@ func SetConsoleLevel(level string) error {
 	}
 	return errors.New("unsupport level:"+level)
 }
+
+func EnableFile() {
+	enableFile = true
+}
+
 
 func Trace(msg ...interface{})  {
 	write(levelTrace,msg)
