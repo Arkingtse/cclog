@@ -50,7 +50,13 @@ func (w *fileLog)Set() error {
 		//w.fileName = time.Now().Format("200601021504")
 	}else {
 		// default rotate daily
-		w.fileName = time.Now().Format(cfg.FileNameFormat)
+		exePath,err := filepath.Abs(os.Args[0])
+		if err != nil {
+			return err
+		}
+		logDir := filepath.Dir(exePath)
+
+		w.fileName = logDir+"/"+time.Now().Format(cfg.FileNameFormat)
 	}
 
 
@@ -134,7 +140,14 @@ func (w *fileLog)doRotate() error {
 
 	// file exist
 	w.writer.Close()
-	w.fileName = time.Now().Format(cfg.FileNameFormat)
+
+	exePath,err := filepath.Abs(os.Args[0])
+	if err != nil {
+		return err
+	}
+	logDir := filepath.Dir(exePath)
+
+	w.fileName = logDir+"/"+time.Now().Format(cfg.FileNameFormat)
 
 	if err := w.startLogger();err !=nil{
 		return fmt.Errorf("error when rotate file: %\n", err)
