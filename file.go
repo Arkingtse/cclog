@@ -137,12 +137,6 @@ func (w *fileLog)needRotate() bool {
 }
 
 func (w *fileLog)doRotate() error {
-	if err := w.noFileThenCreate(w.fileName);err!=nil{
-		return err
-	}
-
-	// file exist
-	w.writer.Close()
 
 	w.fileName = time.Now().Format(cfg.FileNameFormat)
 	if !filepath.IsAbs(w.fileName){
@@ -153,6 +147,12 @@ func (w *fileLog)doRotate() error {
 		logDir := filepath.Dir(exePath)
 		w.fileName = logDir+"/"+w.fileName
 	}
+
+	if err := w.noFileThenCreate(w.fileName);err!=nil{
+		return err
+	}
+
+	w.writer.Close()
 
 	if err := w.startLogger();err !=nil{
 		return fmt.Errorf("error when rotate file: %\n", err)
