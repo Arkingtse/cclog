@@ -231,9 +231,12 @@ func (w *fileLog)zipLog(nozipfile string) {
 		if err != nil {
 			return nil
 		}
-		w.Write(body)
+		_,err = w.Write(body)
+		if err==nil{
+			// if write successful then remove the src file
+			os.Remove(path)
+		}
 
-		os.Remove(path)
 
 		return nil
 	})
