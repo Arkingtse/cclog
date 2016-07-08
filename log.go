@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"errors"
+	"path/filepath"
 )
 
 const DEFAULT_MSG_FORMAT = "%Time [%Level] %Msg --[%Line]%File"
@@ -18,12 +19,12 @@ const DEFAULT_FILE_FORMAT = "log/20060102.log"
 
 // Trace, Debug, Info, Warn, Error, Critical
 const (
-	levelTrace = iota + 1   // Trace message
-	levelDebug              // Debug message
+	//levelTrace = iota + 1   // Trace message
+	levelDebug = iota + 1   // Debug message
 	levelInfo               // Info message
 	levelWarn               // Warn message
 	levelError              // Error message
-	levelCritical           // Critical message(not)
+	levelFatal              // Fatal message(not)
 )
 
 
@@ -81,6 +82,7 @@ var outputs = make(map[string]outPut)
 
 var stop = false
 var enableFile = false
+var zipLogFile = false
 
 var levelString = make(map[int]string)
 var stringLevel = make(map[string]int)
@@ -88,19 +90,19 @@ var rotateType  = make(map[string]int)
 
 
 func init() {
-	levelString[levelTrace] = "Trace"
-	levelString[levelDebug] = "Debug"
-	levelString[levelInfo] = "Info"
-	levelString[levelWarn] = "Warn"
-	levelString[levelError] = "Error"
-	levelString[levelCritical] = "Critical"
+	//levelString[levelTrace] = "Trace"
+	levelString[levelDebug] = "DEBU"
+	levelString[levelInfo] = "INFO"
+	levelString[levelWarn] = "WARN"
+	levelString[levelError] = "ERRO"
+	levelString[levelFatal] = "FATA"
 
-	stringLevel["Trace"] = levelTrace
-	stringLevel["Debug"] = levelDebug
-	stringLevel["Info"] = levelInfo
-	stringLevel["Warn"] = levelWarn
-	stringLevel["Error"] = levelError
-	stringLevel["Critical"] = levelCritical
+	//stringLevel["Trace"] = levelTrace
+	stringLevel["DEBU"] = levelDebug
+	stringLevel["INFO"] = levelInfo
+	stringLevel["WARN"] = levelWarn
+	stringLevel["ERRO"] = levelError
+	stringLevel["FATA"] = levelFatal
 
 	rotateType["daily"] = 1
 	rotateType["size"] = 2
@@ -109,23 +111,23 @@ func init() {
 
 	// console log default
 	cfg.Console = true
-	cfg.ConsoleLevel = "Trace"
+	cfg.ConsoleLevel = "DEBU"
 	cfg.ConsoleMsgFormat = DEFAULT_MSG_FORMAT
 
 	// file log default
 	cfg.FileNameFormat = DEFAULT_FILE_FORMAT
-	cfg.FileLevel = "Trace"
+	cfg.FileLevel = "INFO"
 	cfg.FileMsgFormat = DEFAULT_MSG_FORMAT
 	cfg.FileRotateType = "daily"
 	cfg.FileMaxRotate = 20
 	cfg.FileRotate = true
 
 	// email log default
-	cfg.EmailLevel = "Trace"
+	cfg.EmailLevel = "INFO"
 	cfg.EmailMsgFormat = DEFAULT_MSG_FORMAT
 
 	// remote log default
-	cfg.RemoteLevel = "Trace"
+	cfg.RemoteLevel = "INFO"
 	cfg.RemoteMsgFormat = DEFAULT_MSG_FORMAT
 
 
@@ -179,6 +181,16 @@ func ConfigFromByte(data []byte) error {
 	if len(strings.TrimSpace(tmp.FileNameFormat)) == 0 {
 		tmp.FileNameFormat = DEFAULT_FILE_FORMAT
 	}
+	// set log file name to full path
+	if !filepath.IsAbs(tmp.FileNameFormat){
+		exePath,err := filepath.Abs(os.Args[0])
+		if err != nil {
+			return err
+		}
+		logDir := filepath.Dir(exePath)
+		tmp.FileNameFormat = logDir+"/"+tmp.FileNameFormat
+	}
+
 	if len(strings.TrimSpace(tmp.FileMsgFormat)) == 0 {
 		tmp.FileMsgFormat = DEFAULT_MSG_FORMAT
 	}
@@ -272,17 +284,24 @@ func EnableFile() {
 	}
 	outputs["file"] = newFileLog()
 	lock.Unlock()
+
+	go func() {
+
+	}()
 }
 
-
-func Trace(msg ...interface{})  {
-	write(levelTrace,msg)
+func ZipLog() {
+	zipLogFile = true
 }
 
-func Tracef(format string, a ...interface{})  {
-	msg := []interface{} {fmt.Sprintf(format, a...)}
-	write(levelTrace,msg)
-}
+//func Trace(msg ...interface{})  {
+//	write(levelTrace,msg)
+//}
+//
+//func Tracef(format string, a ...interface{})  {
+//	msg := []interface{} {fmt.Sprintf(format, a...)}
+//	write(levelTrace,msg)
+//}
 
 func Debug(msg ...interface{})  {
 	write(levelDebug,msg)
@@ -320,13 +339,13 @@ func Errorf(format string, a ...interface{})  {
 	write(levelError,msg)
 }
 
-func Critical(msg ...interface{})  {
-	write(levelCritical,msg)
+func Fatal(msg ...interface{})  {
+	write(levelFatal,msg)
 }
 
-func Criticalf(format string, a ...interface{})  {
+func Fatalf(format string, a ...interface{})  {
 	msg := []interface{} {fmt.Sprintf(format, a...)}
-	write(levelCritical,msg)
+	write(levelFatal,msg)
 }
 
 

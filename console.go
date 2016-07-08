@@ -18,13 +18,13 @@ func newBrush(color string) brush {
 }
 
 var colors = []brush{
-	newBrush("1;34"), // 0                  blue
-	newBrush("1;34"), // Trace              blue
-	newBrush("1;34"), // Debug              blue
+	newBrush("1;0"), // 0                   none
+	//newBrush("1;34"), // Trace            blue
+	newBrush("1;37"), // Debug              gray
 	newBrush("1;34"), // Info               blue
 	newBrush("1;33"), // Warn               yellow
 	newBrush("1;31"), // Error              red
-	newBrush("1;35"), // Critical           magenta
+	newBrush("1;35"), // Fatal              magenta
 }
 
 type consoleLog struct {
