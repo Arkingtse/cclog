@@ -195,7 +195,7 @@ func (w *fileLog)zipLog(nozipfile string) {
 			return nil
 		}
 
-		if time.Since(info.ModTime()) > 24 * time.Hour{
+		if time.Since(info.ModTime()) < 24 * time.Hour{
 			return nil
 		}
 
