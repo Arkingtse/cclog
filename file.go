@@ -195,6 +195,11 @@ func (w *fileLog)zipLog(nozipfile string) {
 			return nil
 		}
 
+		if time.Since(info.ModTime()) > 24 * time.Hour{
+			return nil
+		}
+
+
 		if nozipfile == path{
 			// not zip the new created file
 			return nil
