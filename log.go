@@ -70,20 +70,60 @@ type log struct {
 	FileName string
 }
 
-var logPool *sync.Pool
+
+type CMap struct {
+	sync.Mutex
+	itms map[string]outPut
+}
+
+func (o *CMap)Set(key string, value outPut) {
+	o.Lock()
+	o.itms[key] = value
+	o.Unlock()
+}
+
+func (o *CMap)Get(key string) outPut {
+	return o.itms[key]
+}
+
+func (o *CMap)Del(key string)  {
+	o.Lock()
+	delete(o.itms, key)
+	o.Unlock()
+}
+
+
+func (o *CMap)CloseAll(){
+	for key,_ := range o.itms{
+		o.itms[key].Close()
+	}
+}
+
+func (o *CMap)WriteAll(lg log){
+	for key,_ := range o.itms{
+		o.itms[key].Write(lg)
+	}
+}
+
+
+func NewCMap() *CMap {
+	return &CMap{itms:make(map[string]outPut)}
+}
+
 
 
 
 var lock sync.Mutex
 var cfg config
-var logChan = make(chan *log, 10000)
+var logChan = make(chan log, 10000)
 var signalChan = make(chan string)
-var outputs = make(map[string]outPut)
+var outputs = NewCMap()
 
 var stop = false
 var enableFile = false
 var zipLogFile = false
 
+// 运行过程没有写操作是安全的
 var levelString = make(map[int]string)
 var stringLevel = make(map[string]int)
 var rotateType  = make(map[string]int)
@@ -130,14 +170,6 @@ func init() {
 	cfg.RemoteLevel = "INFO"
 	cfg.RemoteMsgFormat = DEFAULT_MSG_FORMAT
 
-
-	// init the log pool
-	logPool = &sync.Pool{
-		New:func() interface{}{
-			return &log{}
-		},
-	}
-
 	// register all output
 	registerLoggers()
 	// start log writer server
@@ -147,14 +179,12 @@ func init() {
 func registerLoggers()  {
 	lock.Lock()  // block all writer when update log writer
 
-	for k,_ := range outputs{
-		outputs[k].Close()
-	}
+	outputs.CloseAll()
 
 	if enableFile{
-		outputs["file"] = newFileLog()
+		outputs.Set("file", newFileLog())
 	}
-	outputs["console"] = newConsoleLog()
+	outputs.Set("console", newConsoleLog())
 
 	lock.Unlock()
 }
@@ -248,16 +278,14 @@ func write(level int,msg... interface{})  {
 	_,filename := path.Split(file)
 
 
-	lg := logPool.Get().(*log)
+	lg := log{}
 	lg.Time = time.Now()
 	lg.Msg = msg
 	lg.Level = level
 	lg.FileName = filename
 	lg.Line = line
 
-	lock.Lock()
 	logChan <- lg
-	lock.Unlock()
 }
 
 func SetFileLevel(level string) error {
@@ -278,30 +306,14 @@ func SetConsoleLevel(level string) error {
 
 func EnableFile() {
 	enableFile = true
-	lock.Lock()
-	if _,ok := outputs["file"];ok{
-		outputs["file"].Close()
-	}
-	outputs["file"] = newFileLog()
-	lock.Unlock()
 
-	go func() {
-
-	}()
+	registerLoggers()
 }
 
 func ZipLog() {
 	zipLogFile = true
 }
 
-//func Trace(msg ...interface{})  {
-//	write(levelTrace,msg)
-//}
-//
-//func Tracef(format string, a ...interface{})  {
-//	msg := []interface{} {fmt.Sprintf(format, a...)}
-//	write(levelTrace,msg)
-//}
 
 func Debug(msg ...interface{})  {
 	write(levelDebug,msg)
@@ -355,14 +367,11 @@ func startLogger()  {
 	for{
 		select {
 		case lg := <- logChan:
-			write2outputs(*lg)
-			logPool.Put(lg)
+			outputs.WriteAll(lg)
 		case sg := <- signalChan:
 			flush()
 			if sg == "close"{
-				for key,_ := range outputs{
-					outputs[key].Close()
-				}
+				outputs.CloseAll()
 				outputs = nil
 				stop = true
 			}
@@ -371,12 +380,6 @@ func startLogger()  {
 		if stop{
 			break
 		}
-	}
-}
-
-func write2outputs(lg log) {
-	for key,_ := range outputs{
-		outputs[key].Write(lg)
 	}
 }
 
@@ -394,14 +397,6 @@ type outPut interface {
 	Flush()
 }
 
-// delete log out put by name
-func delLog(name string)  {
-	out,ok := outputs[name].(outPut)
-	if ok{
-		out.Close()
-		fmt.Println("output deleted:",name)
-	}
-}
 
 // generate the full log message from log struct
 func genLogMsg(formater string, lg log) string {
